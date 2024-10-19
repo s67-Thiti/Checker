@@ -1,0 +1,172 @@
+import tkinter as tk
+from tkinter import messagebox
+
+class CheckersGame:
+    def __init__(self, master):
+        self.master = master
+        self.master.title("Checkers Game")
+        self.board_size = 8
+        self.square_size = 50
+        self.current_turn = 1  # Player 1 (Red) starts
+        self.selected_piece = None
+        self.board = self.initialize_board()
+        
+        # Create a canvas for the board
+        self.canvas = tk.Canvas(self.master, width=self.board_size * self.square_size, height=self.board_size * self.square_size)
+        self.canvas.pack()
+        self.draw_board()
+        
+        # Turn label
+        self.turn_label = tk.Label(self.master, text="Player 1's turn (Red)", font=("Arial", 16))
+        self.turn_label.pack()
+        
+        # Bind mouse click event to the canvas
+        self.canvas.bind("<Button-1>", self.select_piece)
+
+    def initialize_board(self):
+        # 0: Empty, 1: Player 1's piece, -1: Player 1's King, 2: Player 2's piece, -2: Player 2's King
+        board = [[0] * self.board_size for _ in range(self.board_size)]
+        # Place Player 1's pieces
+        for row in range(3):
+            for col in range(self.board_size):
+                if (row + col) % 2 == 1:
+                    board[row][col] = 1
+        # Place Player 2's pieces
+        for row in range(5, 8):
+            for col in range(self.board_size):
+                if (row + col) % 2 == 1:
+                    board[row][col] = 2
+        return board
+
+    def draw_board(self):
+        # Draw the checkers board
+        self.canvas.delete("all")
+        for row in range(self.board_size):
+            for col in range(self.board_size):
+                color = 'black' if (row + col) % 2 == 0 else 'white'
+                self.canvas.create_rectangle(col * self.square_size, row * self.square_size, 
+                                             (col + 1) * self.square_size, (row + 1) * self.square_size, fill=color)
+                piece = self.board[row][col]
+                if piece != 0:
+                    piece_color = 'red' if abs(piece) == 1 else 'blue'
+                    if piece < 0:  # King
+                        piece_color = 'darkred' if piece == -1 else 'darkblue'
+                    self.canvas.create_oval(col * self.square_size + 10, row * self.square_size + 10, 
+                                            (col + 1) * self.square_size - 10, (row + 1) * self.square_size - 10, fill=piece_color)
+                    if piece < 0:  # King
+                        self.canvas.create_text(col * self.square_size + 25, row * self.square_size + 25, text="K", fill="white")
+
+    def select_piece(self, event):
+        col = event.x // self.square_size
+        row = event.y // self.square_size
+
+        try:
+            if self.selected_piece is None:
+                # First click: select a piece
+                if (self.board[row][col] == self.current_turn or self.board[row][col] == -self.current_turn):
+                    self.selected_piece = (row, col)
+                    self.highlight_moves(row, col)
+                else:
+                    raise ValueError("Not your piece!")
+            else:
+                # Second click: attempt to move
+                valid_moves = self.get_valid_moves(*self.selected_piece)
+                if (row, col) in valid_moves:
+                    self.move_piece(row, col)
+                else:
+                    raise ValueError("Invalid move!")
+                self.selected_piece = None
+                self.draw_board()
+
+                # Switch turn after a move or capture
+                self.switch_turn()
+                self.check_winner()  # Check if the game is over after the move
+        except IndexError:
+            messagebox.showerror("Invalid Selection", "You clicked outside the board!")
+        except ValueError as e:
+            messagebox.showerror("Invalid Move", str(e))
+            self.selected_piece = None  # Reset selection
+
+    def highlight_moves(self, row, col):
+        # Highlight potential valid moves on the board
+        valid_moves = self.get_valid_moves(row, col)
+        for move in valid_moves:
+            self.canvas.create_rectangle(move[1] * self.square_size, move[0] * self.square_size, 
+                                         (move[1] + 1) * self.square_size, (move[0] + 1) * self.square_size, 
+                                         outline='yellow', width=3)
+
+    def get_valid_moves(self, row, col):
+        # Determine valid moves for the selected piece
+        valid_moves = []
+        piece = self.board[row][col]
+
+        # Determine the movement directions based on the type of piece
+        if piece == 1:  # Player 1's normal piece
+            directions = [(1, -1), (1, 1)]  # Can only move downward
+        elif piece == 2:  # Player 2's normal piece
+            directions = [(-1, -1), (-1, 1)]  # Can only move upward
+        elif piece == -1:  # Player 1's king
+            directions = [(-1, -1), (-1, 1), (1, -1), (1, 1)]  # Can move in any direction
+        elif piece == -2:  # Player 2's king
+            directions = [(-1, -1), (-1, 1), (1, -1), (1, 1)]  # Can move in any direction
+    
+        # Loop through the possible directions and check for valid moves
+        for dr, dc in directions:
+            self.check_valid_move(row + dr, col + dc, valid_moves)
+            self.check_jump_move(row, col, row + 2*dr, col + 2*dc, row + dr, col + dc, valid_moves)
+
+        return valid_moves
+    
+    def check_valid_move(self, new_row, new_col, valid_moves):
+        if 0 <= new_row < self.board_size and 0 <= new_col < self.board_size and self.board[new_row][new_col] == 0:
+            valid_moves.append((new_row, new_col))
+
+    def check_jump_move(self, row, col, new_row, new_col, middle_row, middle_col, valid_moves):
+        if (0 <= new_row < self.board_size and 0 <= new_col < self.board_size and 
+            self.board[middle_row][middle_col] != 0 and self.board[middle_row][middle_col] != self.current_turn and 
+            self.board[new_row][new_col] == 0):
+            valid_moves.append((new_row, new_col))
+
+    def move_piece(self, new_row, new_col):
+        start_row, start_col = self.selected_piece
+        piece = self.board[start_row][start_col]
+
+        # Check if the move is a jump (capture)
+        if abs(new_row - start_row) == 2:
+            middle_row = (start_row + new_row) // 2
+            middle_col = (start_col + new_col) // 2
+            self.board[middle_row][middle_col] = 0  # Remove captured piece
+
+        # Move the piece
+        self.board[new_row][new_col] = piece
+        self.board[start_row][start_col] = 0
+
+        # Handle king promotion
+        if new_row == 0 and piece == 2:  # Player 2 reaches the top of the board
+            self.board[new_row][new_col] = -2  # Player 2 king
+        elif new_row == self.board_size - 1 and piece == 1:  # Player 1 reaches the bottom
+            self.board[new_row][new_col] = -1  # Player 1 king
+
+    def switch_turn(self):
+        # Switch between Player 1 and Player 2
+        self.current_turn = 2 if self.current_turn == 1 else 1
+        self.turn_label.config(text=f"Player {self.current_turn}'s turn")
+
+    def check_winner(self):
+        # Count the pieces of each player
+        player1_pieces = sum(row.count(1) + row.count(-1) for row in self.board)
+        player2_pieces = sum(row.count(2) + row.count(-2) for row in self.board)
+
+        # If one player has no pieces left, the other player wins
+        if player1_pieces == 0:
+            messagebox.showinfo("Game Over", "Player 2 (Blue) wins!")
+            self.master.quit()  # End the game
+        elif player2_pieces == 0:
+            messagebox.showinfo("Game Over", "Player 1 (Red) wins!")
+            self.master.quit()  # End the game
+
+# Main execution
+if __name__ == "__main__":
+    root = tk.Tk()
+    game = CheckersGame(root)
+    root.mainloop()
