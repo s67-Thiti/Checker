@@ -1,0 +1,27 @@
+import tkinter as tk
+
+class CheckersGame:
+    def __init__(self, master):
+        self.master = master
+        self.master.title("Checkers Game")
+        self.board_size = 8
+        self.square_size = 50
+        
+        # Create a canvas for the board
+        self.canvas = tk.Canvas(self.master, width=self.board_size * self.square_size, height=self.board_size * self.square_size)
+        self.canvas.pack()
+        self.draw_board()
+
+    def draw_board(self):
+        # Draw the checkers board
+        for row in range(self.board_size):
+            for col in range(self.board_size):
+                color = 'black' if (row + col) % 2 == 0 else 'white'
+                self.canvas.create_rectangle(col * self.square_size, row * self.square_size, 
+                                             (col + 1) * self.square_size, (row + 1) * self.square_size, fill=color)
+
+# Main
+if __name__ == "__main__":
+    root = tk.Tk()
+    game = CheckersGame(root)
+    root.mainloop()
