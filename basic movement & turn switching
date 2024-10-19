@@ -1,0 +1,77 @@
+import tkinter as tk
+
+class CheckersGame:
+    def __init__(self, master):
+        self.master = master
+        self.master.title("Checkers Game - Version 4")
+        self.board_size = 8
+        self.square_size = 50
+        self.current_turn = 1  # Player 1 (Red) starts
+        self.selected_piece = None
+        self.board = self.initialize_board()
+
+        # Create a canvas for the board
+        self.canvas = tk.Canvas(self.master, width=self.board_size * self.square_size, height=self.board_size * self.square_size)
+        self.canvas.pack()
+        self.draw_board()
+
+        # Turn label
+        self.turn_label = tk.Label(self.master, text="Player 1's turn (Red)", font=("Arial", 16))
+        self.turn_label.pack()
+
+        # Bind mouse click event to the canvas
+        self.canvas.bind("<Button-1>", self.select_piece)
+
+    def initialize_board(self):
+        board = [[0] * self.board_size for _ in range(self.board_size)]
+        for row in range(3):
+            for col in range(self.board_size):
+                if (row + col) % 2 == 1:
+                    board[row][col] = 1
+        for row in range(5, 8):
+            for col in range(self.board_size):
+                if (row + col) % 2 == 1:
+                    board[row][col] = 2
+        return board
+
+    def draw_board(self):
+        self.canvas.delete("all")
+        for row in range(self.board_size):
+            for col in range(self.board_size):
+                color = 'black' if (row + col) % 2 == 0 else 'white'
+                self.canvas.create_rectangle(col * self.square_size, row * self.square_size, 
+                                             (col + 1) * self.square_size, (row + 1) * self.square_size, fill=color)
+                piece = self.board[row][col]
+                if piece != 0:
+                    piece_color = 'red' if piece == 1 else 'blue'
+                    self.canvas.create_oval(col * self.square_size + 10, row * self.square_size + 10, 
+                                            (col + 1) * self.square_size - 10, (row + 1) * self.square_size - 10, fill=piece_color)
+
+    def select_piece(self, event):
+        col = event.x // self.square_size
+        row = event.y // self.square_size
+
+        if self.selected_piece is None:
+            if self.board[row][col] == self.current_turn:
+                self.selected_piece = (row, col)
+        else:
+            self.move_piece(row, col)
+            self.selected_piece = None
+            self.draw_board()
+            self.switch_turn()
+
+    def move_piece(self, new_row, new_col):
+        start_row, start_col = self.selected_piece
+        if self.board[new_row][new_col] == 0:
+            self.board[new_row][new_col] = self.board[start_row][start_col]
+            self.board[start_row][start_col] = 0
+
+    def switch_turn(self):
+        self.current_turn = 2 if self.current_turn == 1 else 1
+        self.turn_label.config(text=f"Player {self.current_turn}'s turn")
+
+# Main
+if __name__ == "__main__":
+    root = tk.Tk()
+    game = CheckersGame(root)
+    root.mainloop()
